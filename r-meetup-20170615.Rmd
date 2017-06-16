@@ -1,0 +1,412 @@
+---
+title: "Why Tidyverse is just awesome!"
+subtitle: "Ramblings from a highly biased fanboy"
+author: "by Niels Ole Dam, Things in Flow"
+date: "June 15, 2017"
+output:
+    ioslides_presentation:
+        widescreen: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+org_dir <- getwd()
+```
+
+# Why do R need Tidyverse?  
+  
+## The basics  
+  
+ * R is Open Source  
+ * R is an old language – first appeared in 1993  
+ * R is based on S which is even older – first build in 1976  
+ * Easy to build and expand upon with packages  
+ * Now more than 10.000 packages  
+  
+## Consequences  
+  
+ * Open Source + Old = Lots of contributors over time  
+ * Lots of contributers + Old = Lots of old code and lots of different coding paradigms  
+ * = Rather difficult to (really) learn from scratch  
+  
+## But why is R so popular then?  
+  
+ * For me:  
+ * My tool of choice because it (in my opinion) focuses on the important part of the domain – data science itself.  
+ * Data Science vs. Programming  
+ * ...and then there also those 10.000 packages!  
+ * ...and all that PhD research baked into new R packages!  
+  
+
+# The force driving Tidyverse  
+  
+## Enter Hadley Wickham...
+
+ * A man with a course!  
+ * “You should behave responsibly R-wise!”  
+ * “You should embrace modern engineering practices!”  
+ * “You should use R as it was intended!”  
+ * “You should respect your peers – and all other human beings!”  
+ * [ The above = my take on what drives the guy... ]
+
+***
+![](images/Hadley-wickham2016-02-04.jpg)
+
+  
+## Hadleys own take on the "Tidy Tools Manifesto"
+  
+ * “Share data structures”  
+ * “Compose simple pieces”  
+ * “Embrace Functional Programming”  
+ * “Write for humans”  
+* [ [https://speakerdeck.com/hadley/tidyverse](https://speakerdeck.com/hadley/tidyverse?slide=8) ]  
+  
+# Ok – but what is this Tidyverse?  
+  
+## Tidyverse – random facts  
+  
+ * Focuses on the way data scientists think and work  
+ * Started out as “Hadleyverse”  
+ * Officially changed name to Tidyverse, [Oct. 2016](https://github.com/rocker-org/rocker/issues/201)  
+ * Great for beginners and experts alike  
+ * A collection of consistent R packages supporting a systematic Data Science workflow.  
+  
+## The Tidyverse Workflow  
+  
+![From: [speakerdeck.com/hadley/tidyverse](https://speakerdeck.com/hadley/tidyverse?slide=7)](images/workflow.png)
+  
+## Tidyverse – ordered by function  
+  
+![ From [speakerdeck.com/hadley/tidyverse][2]](images/Workflow-packages_cropped.png)
+  
+## Tidyverse – by usage  
+
+![From: [github.com/tidyverse/tidyverse](https://github.com/tidyverse/tidyverse) ](images/Packages_cropped.png) 
+  
+## Tidyverse – Beginners vs. advanced  
+
+![ From [barryrowlingson.github.io/hadleyverse/#4](https://barryrowlingson.github.io/hadleyverse/#4) ](images/Packages_beginners_vs_advanced.png)
+
+# Show me the code!  
+
+# My top 10 favorite Tidyverse tricks  
+  
+## Use lists whenever possible  
+
+
+[ Demo ]
+
+(Tip: See slideshow code for details.)
+
+```{r, echo=FALSE, eval=FALSE}
+
+library(tidyverse)
+
+setwd("./data_in")
+
+# Lookup file names and file info
+filenames <- list.files(pattern = "*.csv")
+fileinfo <- rownames_to_column(file.info(filenames),
+                               var = "filename") %>%
+    mutate(date = as.Date(round(mtime, units = "days")) - 1) %>% # Round to correct day
+    select(filename, date)
+inputTables <- list()
+outputTables <- list()
+types <- c()
+totalFiles <- nrow(fileinfo)
+
+# Read data from files into list of tibbles
+for (i in 1:length(filenames)) {
+    # Read data and add to input tables list
+    inputTables[[filenames[i]]] <- read_csv(filenames[i], 
+                                             na = c("NA", "NULL", ""),
+                                             col_names = FALSE,
+                                             col_types = cols(.default = "c"),
+                                             locale = locale(encoding = "Latin1"))
+    
+    # Add filename, date and identify action type 
+    inputTables[[filenames[i]]] <- inputTables[[filenames[i]]] %>%
+        mutate(filename = filenames[i]) %>%
+        separate(filename,
+                 c("file_id", "type"), 
+                 extra = "drop",
+                 remove = FALSE) %>%
+        left_join(fileinfo) %>%
+        select(type, date, everything(), -filename, file_id)
+    
+    # Make list of file types
+    types <- unique(c(unique(inputTables[[filenames[i]]]$type),
+                      types))
+    
+    # Combine input data based on type
+    for (type in as.character(types)) {
+        if (inputTables[[filenames[i]]]$type == type) {
+            outputTables[[type]] <- bind_rows(outputTables[[type]],
+                                              inputTables[[filenames[i]]])
+        }
+    }
+}
+
+setwd(org_dir)
+
+```
+
+  
+## ...and explore the lists interactively  
+
+```{r, echo=TRUE, eval=FALSE}
+
+View(outputTables[["INITIALIZE"]])
+
+View(outputTables[["STOP"]])
+
+```
+  
+## Use readr for fileinput – and exploration  
+  
+ * readr is integrated into RStudios file navigation
+
+ * [ Demo ]
+
+(Tip: See slideshow code for details.)
+  
+## Use httr for APIs  
+  
+```{r, eval=FALSE, echo=TRUE}  
+
+library(httr)
+library(jsonlite)
+
+spotifyOAuth <- function(app_id, client_id, client_secret) {
+    spotifyR <- httr::oauth_endpoint(
+        authorize = "https://accounts.spotify.com/authorize",
+        access = "https://accounts.spotify.com/api/token")
+    myapp <- httr::oauth_app(app_id, client_id, client_secret)
+    return(httr::oauth2.0_token(spotifyR, myapp, scope = "playlist-modify-public"))
+}
+
+keys <- spotifyOAuth("roskilde-2017",
+                     "your_client_id",
+                     "your_client_secret")
+
+```
+
+## ...and get the data  
+  
+```{r, eval=FALSE, echo=TRUE}  
+
+searchArtist <- function(artistName) {
+    r <- httr::RETRY("GET", paste0("https://api.spotify.com/v1/search?q=", 
+                                   gsub(' ', '+', artistName),"&type=artist&market=DK"),
+                     times = 30)
+    req <- jsonlite::fromJSON(content(r, "text"))
+    if (!is.null(req$artists$total) && req$artists$total > 0) {
+        artist <- req$artists$items[,c("id", "name", "popularity", "genres", "type")]
+        artist$followers <- as.numeric(req$artists$items$followers$total)
+        return(artist)
+    } else {
+        return(NA)
+    }
+}
+
+sp_artists_raw <- lapply(rf_artists$encodedName, searchArtist)
+
+```
+## Use tibble for more reable code  
+  
+[ Demo  - Roskilde Festival ]
+
+(Tip: See slideshow code for details.)
+
+```{r, eval=FALSE, echo=FALSE}
+
+library(googleVis)
+
+artists <- readRDS(file = "data_in/artists.rds")
+sp_artists <- readRDS(file = "data_in/sp_artists.rds")
+
+# Create list of schedules to generate
+df <- tribble(
+    ~artists, ~show_main_period, ~add_url, ~YEAR,  ~sp_data,   ~path,      ~schedule_name,
+    artists,  FALSE,             FALSE,    "2017", sp_artists, "data_out", "scheduleUpcoming",
+    artists,  TRUE,              FALSE,    "2017", sp_artists, "data_out", "scheduleMain",
+    artists,  FALSE,             TRUE,     "2017", sp_artists, "data_out", "scheduleUpcomingWithURL",
+    artists,  TRUE,              TRUE,     "2017", sp_artists, "data_out", "scheduleMainWithURL"
+)
+
+# Generate schedules to a list and also add name of each schedule to list
+source("generate-schedules.R")
+schedules_list <- df %>% 
+    pmap(generate_schedules)
+names(schedules_list) <- df$schedule_name
+
+# Plot two of the schedules as gvisTable
+plot(gvisTable(schedules_list[["scheduleMainWithURL"]], 
+               options = list(allowHTML = TRUE, sort = "disable")))
+
+plot(gvisTable(schedules_list[["scheduleUpcomingWithURL"]], 
+          options = list(allowHTML = TRUE, sort = "disable")))
+
+```
+
+  
+## Use map, map2 and pmap from purrr instead of apply, sapply, mapply etc.  
+  
+```{r, eval=FALSE, echo=TRUE}
+
+n <- list(1, 3, 5)
+args1 <- list(n, mu, sigma)
+args1 %>%
+    pmap(rnorm) %>%
+    str()
+
+map
+map_lgl
+map_chr
+map_int
+map_dbl
+map_df
+walk
+
+```
+
+  
+## Use dplyr and tidyr for your data pipeline  
+  
+```{r, echo=TRUE, eval=FALSE}
+
+library(gapminder)
+library(tidyr)
+library(dplyr)
+
+View(gapminder)
+
+by_country <- gapminder %>%
+    mutate(year1950 = year - 1950) %>%
+    group_by(continent, country) %>%
+    nest()
+
+View(by_country)
+
+```
+
+[ Gapminder Demo ]
+
+## Use purrr::map for your data pipeline  
+  
+```{r, echo=TRUE, eval=FALSE}
+
+library(purrr)
+
+country_model <- function(df) {
+    lm(lifeExp ~ year1950, data = df)
+}
+
+by_country2 <- by_country %>%
+    mutate(model = map(data, country_model))
+
+View(by_country2)
+
+```
+
+[ Demo - cont. ]
+
+
+## Use modelr for your data pipeline  
+  
+```{r, echo=TRUE, eval=FALSE}
+
+library(modelr)
+
+by_country3 <- by_country2 %>% 
+    mutate(resids = map2(data, model, add_residuals))
+
+View(by_country3)
+
+```  
+
+[ Demo - cont. ]
+
+  
+## Use ggplot2 for your data pipeline  
+  
+```{r, echo=TRUE, eval=FALSE}
+
+library(ggplot2)
+
+unnest(by_country3, resids) %>%
+    ggplot(aes(year, resid, group = country)) +
+    geom_line(alpha = 1 / 3) + facet_wrap(~continent)
+
+```  
+
+[ Demo - cont. ]
+
+  
+## Remember: Tidyverse needs Tidy data  
+  
+ * Each variable forms a column.  
+ * Each observation forms a row.  
+ * Each type of observational unit forms a table.  
+ * [ From [Tidy Data](http://vita.had.co.nz/papers/tidy-data.pdf) by Hadley Wickham ]
+
+
+# I want all this Tidy Goodness!!! Where do I start?  
+  
+## Hadleys Wickhams talk at Plotcon 2016, New York (30:00 min)  
+  
+![ Link: [youtube.com](https://youtu.be/cU0-NrUxRw4?t=1s) ](images/PLOTCON_2016_Hadley_Wickham_cropped.png)
+
+
+## R for Data Science (book) – great introduction to Data Science and Tidyverse.  
+
+![ From [http://r4ds.had.co.nz](http://r4ds.had.co.nz) ](images/R_for_Data_Science_cropped.png)
+
+
+## RStudio Webinars (videos)   
+  
+![ Link: [rstudio.com/resources/webinars/](https://www.rstudio.com/resources/webinars/) ](images/Webinars_RStudio_croppped.png) 
+
+## Advanced R (book) – great introduction to R as a full fledged Functional Programming language.  
+
+![ From [http://adv-r.had.co.nz](http://adv-r.had.co.nz/) ](images/Advanced_R_cropped.jpg)
+
+  
+## R Cheatsheets by RStudio (pdf) – great for easy reference to main packages.  
+  
+![ Link: [rstudio.com/resources/cheatsheets/](https://www.rstudio.com/resources/cheatsheets/) ](images/Cheatsheets_RStudio_cropped.png)  
+  
+
+# Still not convinced?!  
+  
+## Don’t take my word for it – other people are fans too! {.columns-2} 
+
+_“The Hadleyverse is where we want to be!”_
+
+Andrew Gelman
+<br />
+Prof. Columbia University
+<br />
+\#1 STAN Core Developer
+<br />
+(among other things)
+
+
+[![](images/Andrew_Gelman_cropped.png)](https://youtu.be/cuE9eHSbjNI?t=8m24s)
+
+
+## So wether you like it or not...  
+  
+* Beware:  
+* Tidyverse is coming to a R galaxy near you!  
+* (and you really should embrace it)  
+* :-D  
+  
+## Thanks!  
+  
+* Niels Ole Dam  
+* Things in Flow  
+* @nielsoledam  
+* nd@thingsinflow.dk  
+* https://thingsinflow.dk  
+
