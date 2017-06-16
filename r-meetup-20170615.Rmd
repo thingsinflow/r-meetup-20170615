@@ -407,6 +407,10 @@ Prof. Columbia University
 * Niels Ole Dam  
 * Things in Flow  
 * @nielsoledam  
-* nd@thingsinflow.dk  
-* https://thingsinflow.dk  
+* info@thingsinflow.dk  
+* https://thingsinflow.dk
+
+Github repo with the code for this slideshow:
+<br />
+http://bit.ly/why-tidyverse-is-just-awesome
 
